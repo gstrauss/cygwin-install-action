@@ -78,11 +78,6 @@ runs:
           }
         }
 
-        $packages = '${{ inputs.packages }}'
-        $pkg_list = $packages.Split('', [System.StringSplitOptions]::RemoveEmptyEntries)
-        $pkg_list = $pkg_list | % { $_.Trim() }
-        $pkg_list = $pkg_list | % { $_.Trim(',') }
-
         $args = @(
          '-qnO',
          '-l', 'C:\cygwin-packages',
@@ -101,13 +96,13 @@ runs:
         } else {
           $sites = 'http://mirrors.kernel.org/sourceware/cygwin/'
         }
-        $site_list = $sites.Split('', [System.StringSplitOptions]::RemoveEmptyEntries)
-        $site_list = $site_list | % { $_.Trim() }
+        $site_list = $sites -split '[\s,]+',10000,"RegexMatch,Singleline" | Where { $_ -ne '' }
         foreach ($site in $site_list) {
           $args += '-s'
           $args += $site
         }
 
+        $pkg_list = '${{ inputs.packages }}' -split '[\s,]+',10000,"RegexMatch,Singleline" | Where { $_ -ne '' }
         if ($pkg_list.Count -gt 0) {
           $args += '-P'
           $args += $pkg_list -Join(',')
@@ -117,14 +112,10 @@ runs:
           $args += '-X'
         }
 
-        if ( '${{ inputs.pubkeys }}' ) {
-          $pubkeys = '${{ inputs.pubkeys }}'
-          $pubkey_list = $pubkeys.Split('', [System.StringSplitOptions]::RemoveEmptyEntries)
-          $pubkey_list = $pubkey_list | % { $_.Trim() }
-          foreach ($pubkey in $pubkey_list) {
-            $args += '-K'
-            $args += $pubkey
-          }
+        $pubkey_list = '${{inputs.pubkeys}}' -split '[\s,]+',10000,"RegexMatch,Singleline" | Where { $_ -ne '' }
+        foreach ($pubkey in $pubkey_list) {
+          $args += '-K'
+          $args += $pubkey
         }
 
         if ($platform -eq 'x86') {
@@ -134,16 +125,16 @@ runs:
         # because setup is a Windows GUI app, make it part of a pipeline to make
         # PowerShell wait for it to exit
         & C:\setup.exe $args | Out-Default
-      shell: powershell
+      shell: pwsh
 
     - if: ${{ inputs.add-to-path  == 'true' }}
       run: echo "${{ inputs.install-dir }}\bin" >> $env:GITHUB_PATH
-      shell: powershell
+      shell: pwsh
 
     - run: |
         # run login shell to copy skeleton profile files
         ${{ inputs.install-dir }}\bin\bash.exe --login
-      shell: powershell
+      shell: pwsh
 
 branding:
   color: green
